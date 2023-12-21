@@ -91,7 +91,10 @@ async function run() {
 
     app.get("/hot-products", async (req, res) => {
       const result = await productCollecction
-        .find({}, { projection: { title: 1, image: 1, subCategoryName: 1 } })
+        .find(
+          { isHot: true },
+          { projection: { title: 1, image: 1, subCategoryName: 1 } }
+        )
         .limit(6)
         .toArray();
       res.send(result);
@@ -133,6 +136,14 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/product/:id", verifyJwt, async (req, res) => {
+      const { id } = req.params;
+      const result = await productCollecction.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
+
     app.get("/categoryProducts/:categoryName", async (req, res) => {
       const categoryName = req.params.categoryName;
       const query = { categoryName: categoryName };
@@ -142,25 +153,23 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/products", async (req, res) => {
+    app.post("/products", verifyJwt, async (req, res) => {
       const data = req.body;
-
       const result = await productCollecction.insertOne(data);
       res.send(result);
     });
 
     //addcategory
 
-    app.post("/addCategory", async (req, res) => {
+    app.post("/addCategory", verifyJwt, async (req, res) => {
       const data = req.body;
       const result = await categoryCollection.insertOne(data);
       res.send(result);
     });
 
-    app.put("/addCategory/:id", async (req, res) => {
+    app.put("/addCategory/:id", verifyJwt, async (req, res) => {
       const categoryId = req.params.id;
       const newCategory = req.body;
-
       try {
         const result = await categoryCollection.updateOne(
           { _id: new ObjectId(categoryId) },
@@ -174,7 +183,7 @@ async function run() {
       }
     });
     //delete main category
-    app.delete("/deleteCategory/:categoryId/", async (req, res) => {
+    app.delete("/deleteCategory/:categoryId/", verifyJwt, async (req, res) => {
       const categoryId = req.params.categoryId;
       const query = { _id: new ObjectId(categoryId) };
       const result = await categoryCollection.deleteOne(query);
@@ -184,6 +193,7 @@ async function run() {
     //delete subcategory
     app.delete(
       "/deleteCategory/:categoryId/:subcategorySlug",
+      verifyJwt,
       async (req, res) => {
         const categoryId = req.params.categoryId;
         const subcategorySlug = req.params.subcategorySlug;
@@ -237,6 +247,21 @@ async function run() {
       res.send(result);
     });
 
+    // change hot
+    app.patch("/make-or-remove-hot/:id", verifyJwt, async (req, res) => {
+      const { id } = req.params;
+      const { isHot } = req.body;
+      const updateDoc = {
+        $set: { isHot },
+      };
+      const result = await productCollecction.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc,
+        { upsert: true }
+      );
+      res.send(result);
+    });
+
     // app.get("/create-user/:uid/:email", async (req, res) => {
     //   const { uid, email } = req.params;
     //   const user = {
@@ -254,6 +279,8 @@ async function run() {
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
+  } catch (err) {
+    console.log(err);
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();s
